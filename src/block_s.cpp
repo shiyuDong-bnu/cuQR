@@ -5,11 +5,12 @@
 using namespace arma;
 void house( double x[],int size , double v[],double & beta);
 void serial_qr(double * arr,int column ,int row);
+void recover(double * arr,int column ,int row);
 int main()
 {
     // initial matrix
-    int dim1=10;
-    int dim2=8;
+    int dim1=13;
+    int dim2=12;
     mat A=mat(dim1,dim2).randn();
     A=A*10*-1;
     double trans_array[dim2][dim1];
@@ -18,14 +19,12 @@ int main()
             trans_array[i][j]=A.at(j,i);
         }
     }
+    A.print();
     serial_qr((double *)trans_array,dim1,dim2);
-    std::cout<<"Outside serial qr";
-    for (int i=0;i<dim2;i++){
-        for (int j=0;j<dim1;j++){
-            std::cout<<trans_array[i][j]<<" ";
-        }
-        std::cout<<"\n";
-    }
+    recover((double *)trans_array,dim1,dim2);
+    arma::mat F= arma::mat((double *)trans_array ,dim1,dim2,false,true);
+    F.print();
+    std::cout<<norm2est(F-A,2);
     return 0;
 }
 void house( double x[],int size , double v[],double & beta){
@@ -58,13 +57,8 @@ void serial_qr(double * arr,int column ,int row){
     int dim2=row;
     double betas[dim2];
     arma::mat A= arma::mat(arr ,column,row,false,true);
-    std::cout<<"IN serial qr\n";
-    A.print();
-    arma::mat B=arma::mat(A).zeros();
-    arma::mat D=arma::mat(A);
     double x[dim1];
     double v[dim1];
-    std::vector<double> v_std_vector;
     arma::vec v_vec=arma::vec(v,dim1,false,false); // share the same memory of v
     int iter_dim;
     for (iter_dim=0;iter_dim<dim2;iter_dim++){
@@ -76,22 +70,23 @@ void serial_qr(double * arr,int column ,int row){
         A.submat(arma::span(iter_dim,dim1-1),arma::span(iter_dim,dim2-1))=
                 A.submat(arma::span(iter_dim,dim1-1),arma::span(iter_dim,dim2-1))
               -betas[iter_dim] * v_vec.subvec(0,dim1-iter_dim-1)*v_vec.subvec(0,dim1-iter_dim-1).t()*A.submat(arma::span(iter_dim,dim1-1),arma::span(iter_dim,dim2-1));
-        B.col(iter_dim).tail(dim1-iter_dim-1)=v_vec.subvec(1,dim1-iter_dim-1);
+        A.col(iter_dim).tail(dim1-iter_dim-1)=v_vec.subvec(1,dim1-iter_dim-1);
     }
-    A.print();
-    // reconstruct A
-    B.print();
-    // matrix Q
-    if (test){
-        arma::mat Q=arma::eye(dim1,dim1);
-        for (int i=0;i<dim2;i++){
-            arma::vec v_vec_trans=arma::vec(v,dim1,true,false);// not share the same memory
-            v_vec_trans.zeros();
-            v_vec_trans[dim2-i-1]=1;
-            v_vec_trans.tail(dim1-dim2+i)=B.col(dim2-1-i).tail(dim1-dim2+i);
-            Q=Q-2/dot(v_vec_trans,v_vec_trans)*v_vec_trans*(v_vec_trans.t()*Q);
-        }
-        std::cout<<" Q*R -A MATRIX \n";
-        std::cout<<Q*A-D;
+}
+void recover(double * arr,int column ,int row){
+    int dim1=column;
+    int dim2=row;
+    arma::mat F= arma::mat((double *)arr ,dim1,dim2,false,true);
+    // recover A
+    arma::vec v_vec_result=arma::vec(dim1).zeros();
+    for (int i=0;i<dim2;i++){
+        v_vec_result[dim2-i-1]=1;
+        v_vec_result.tail(dim1-dim2+i)=F.col(dim2-1-i).tail(dim1-dim2+i);
+        arma::vec v_t=v_vec_result.subvec(dim2-i-1,dim1-1);
+        // construct R
+        F.col(dim2-1-i).tail(dim1-dim2+i).zeros();
+        F.submat(span(dim2-1-i, dim1-1), span(dim2-1-i, dim2-1))=F.submat(span(dim2-1-i, dim1-1), span(dim2-1-i, dim2-1))
+                                            -2/dot(v_t,v_t)*v_t
+                      *(v_t.t()*F.submat(span(dim2-1-i, dim1-1), span(dim2-1-i, dim2-1)));
     }
 }
