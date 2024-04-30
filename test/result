@@ -1,0 +1,10 @@
+2 
+omp duration: 54ms naive duration: 2ms
+4 
+omp duration: 66ms naive duration: 15ms
+8 
+omp duration: 129ms naive duration: 128ms
+16 
+omp duration: 633ms naive duration: 1093ms
+32 
+64 
